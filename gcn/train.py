@@ -12,9 +12,20 @@ seed = 123
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
+#delete all flags before declaration
+def del_all_flags(FLAGS):
+    flags_dict = FLAGS._flags()
+    keys_list = [keys for keys in flags_dict]
+    for keys in keys_list:
+        FLAGS.__delattr__(keys)
+
+del_all_flags(tf.flags.FLAGS)
+
 # Settings
 flags = tf.app.flags
-FLAGS = flags.FLAGS
+FLAGS = tf.app.flags.FLAGS
+tf.app.flags.DEFINE_string('mode', '', 'kernel') # no idea what this do
+tf.app.flags.DEFINE_string('port', '', 'kernel') # no idea what this do
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
