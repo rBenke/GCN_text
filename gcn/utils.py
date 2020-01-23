@@ -121,8 +121,11 @@ def evaluate(features, support, labels, mask, placeholders, sess, model):
 def load_data(dataset_str, max_sample):
     data_path = '../data/'
     files = [f for f in os.listdir(data_path) if f.startswith(dataset_str)]
-    files = np.random.choice(files,max_sample,False) 
-    
+    if max_sample < len(files):
+        files = np.random.choice(files,max_sample,False) 
+    else: 
+        files = np.array(files)
+        
     adj_lst = list()
     features_lst = list()
     labels_lst = list()
@@ -153,7 +156,7 @@ def load_data(dataset_str, max_sample):
     
     # adj block matrix
     nodes_before = 0
-    nodes_after = features_mat.shape[0] 
+    nodes_after = features_mat.shape[0]
     for i in range(len(adj_lst)):
         n_nodes = len(n_nodes_lst[i])
         nodes_after -= n_nodes
