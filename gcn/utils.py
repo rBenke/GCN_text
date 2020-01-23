@@ -6,6 +6,7 @@ from scipy.sparse.linalg.eigen.arpack import eigsh
 import sys
 import os
 from itertools import chain
+import time
 
 def del_all_flags(FLAGS):
     flags_dict = FLAGS._flags()
@@ -109,7 +110,7 @@ def chebyshev_polynomials(adj, k):
     return sparse_to_tuple(t_k)
 
 # Define model evaluation function
-def evaluate(features, support, labels, mask, placeholders):
+def evaluate(features, support, labels, mask, placeholders, sess, model):
     t_test = time.time()
     feed_dict_val = construct_feed_dict(features, support, labels, mask, placeholders)
     outs_val = sess.run([model.loss, model.accuracy], feed_dict=feed_dict_val)
