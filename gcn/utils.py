@@ -7,6 +7,7 @@ import sys
 import os
 from itertools import chain
 import time
+from IPython.core.debugger import set_trace
 
 def del_all_flags(FLAGS):
     flags_dict = FLAGS._flags()
@@ -148,24 +149,27 @@ def load_data(dataset_str, max_sample):
         file.close()
     
     # create labels matrix
-    labels_mat =  np.vstack([[labels_lst[i]]*len(n_nodes_lst[i]) for i in range(len(labels_lst))])
+    labels_mat =  np.vstack([[labels_lst[i]]*(len(n_nodes_lst[i])+1) for i in range(len(labels_lst))])
     
     # create feature matrix
-    features_mat =  np.vstack(features_lst)
+  
+    features_mat =  np.vstack([np.vstack([features,np.zeros(features.shape[1])]) for features in features_lst])
     features_mat = sp.csr_matrix(features_mat)
-    
+ 
+    # add 'graph node' to adj matrix
+    adj_lst = [sp.csr_matrix(np.vstack([sp.hstack((single_graph_adj, np.ones(single_graph_adj.shape[1])[:,None])).A, np.append(np.ones(single_graph_adj.shape[0]), 0)[None, :]])) for single_graph_adj in adj_lst]
     # adj block matrix
     nodes_before = 0
     nodes_after = features_mat.shape[0]
     for i in range(len(adj_lst)):
-        n_nodes = len(n_nodes_lst[i])
+        n_nodes = len(n_nodes_lst[i])+1
         nodes_after -= n_nodes
         if nodes_before>0:
             left_mat = sp.hstack([np.zeros((n_nodes, nodes_before)),adj_lst[i]])
         else :
             left_mat = adj_lst[i]
         if nodes_after>0:
-          
+        
             adj_lst[i] = sp.hstack([left_mat,np.zeros((n_nodes, nodes_after))])
         else:
             adj_lst[i] = left_mat
@@ -173,9 +177,9 @@ def load_data(dataset_str, max_sample):
         nodes_before += n_nodes
     adj_mat = sp.vstack(adj_lst)
     
-    # prepare masks (train/val/test sets)
-    train_ratio = 0.8
-    val_ratio = 0.2
+    # prepare masks (train/val/test sets) for graph
+    train_ratio = 0.7
+    val_ratio = 0.5
     train_mask = np.zeros(len(files))
     val_mask = np.zeros(len(files))
     test_mask = np.zeros(len(files))
@@ -195,15 +199,21 @@ def load_data(dataset_str, max_sample):
     for ind in test_mask_ind:
         test_mask[ind] = 1
     
-    test_mask_mat =  np.vstack([[[test_mask[i]]*5]*len(n_nodes_lst[i]) for i in range(len(test_mask))])
-    val_mask_mat =   np.vstack([[[val_mask[i]]*5]*len(n_nodes_lst[i]) for i in range(len(val_mask))])
-    train_mask_mat =  np.vstack([[[train_mask[i]]*5]*len(n_nodes_lst[i]) for i in range(len(train_mask))])
+    # extend mask to all nodes, ones only for global nodes
+    test_mask_mat =  np.vstack([np.vstack([[[0]*5]*len(n_nodes_lst[i]),[test_mask[i]]*5]) for i in range(len(test_mask))])
+    val_mask_mat =   np.vstack([np.vstack([[[0]*5]*len(n_nodes_lst[i]),[val_mask[i]]*5]) for i in range(len(val_mask))])
+    train_mask_mat =  np.vstack([np.vstack([[[0]*5]*len(n_nodes_lst[i]),[train_mask[i]]*5]) for i in range(len(train_mask))])
+   
+    # extend mask to all nodes, ones for all nodes in graph
+#     test_mask_mat =  np.vstack([np.vstack([[[test_mask[i]]*5]*len(n_nodes_lst[i]),[test_mask[i]]*5]) for i in range(len(test_mask))])
+#     val_mask_mat =   np.vstack([np.vstack([[[val_mask[i]]*5]*len(n_nodes_lst[i]),[val_mask[i]]*5]) for i in range(len(val_mask))])
+#     train_mask_mat =  np.vstack([np.vstack([[[train_mask[i]]*5]*len(n_nodes_lst[i]),[train_mask[i]]*5]) for i in range(len(train_mask))])
     
-    # check if the result is correct
+    # check if the result is correct, ones only for global nodes
     sum_check = test_mask_mat+val_mask_mat+train_mask_mat
     if (np.max(sum_check)>1):
         sys.exit()
-    elif (np.any(sum_check==0)):
+    elif (np.sum(sum_check)!=len(files)*5):
         sys.exit()
     
     # use mask for labels masking
@@ -211,9 +221,9 @@ def load_data(dataset_str, max_sample):
     test_labels_mat = np.multiply(labels_mat, test_mask_mat)
     val_labels_mat = np.multiply(labels_mat, val_mask_mat)
     
-    # check if the result is correct
+    # check if the result is correct, ones only for global nodes
     sum_check = train_labels_mat+test_labels_mat+val_labels_mat
-    if (np.sum(sum_check)!= test_labels_mat.shape[0]):
+    if (np.sum(sum_check)!= len(files)):
         sys.exit()    
     
     return adj_mat, features_mat, train_labels_mat, test_labels_mat, val_labels_mat, train_mask_mat, test_mask_mat, val_mask_mat
